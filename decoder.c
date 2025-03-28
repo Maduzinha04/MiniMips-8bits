@@ -7,7 +7,7 @@
 
 enum classe_inst{
     tipo_I, tipo_J, tipo_R, tipo_OUTROS
-};.
+};
 
 struct instrucao{
     enum classe_inst tipo_inst;
@@ -29,7 +29,7 @@ void decodificador(struct instrucao *inst){
     
     char opcode_str[5];
     strncpy(opcode_str, (*inst).inst_char, 4);
-    opcode_str[4]= '/0';
+    opcode_str[4]= '\0';
     (*inst).opcode = strtol(opcode_str, NULL, 2);
     
     if ((*inst).opcode == 0) { // Tipo R
