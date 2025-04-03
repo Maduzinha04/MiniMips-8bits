@@ -8,7 +8,7 @@
 
 // Estrutura da memória de dados
 typedef struct datamem{
-    int data_mem[DATA_SIZE];  // Cada posição = 1 byte (usando int para simplicidade)
+    int data_mem[DATA_SIZE];  // Cada posição = 1 byte (8 bits)
 } DataMemory;
 
 // Estrutura do Program Counter
@@ -17,7 +17,7 @@ typedef struct pc{
     int prev_pc;     // Endereço anterior (para branches)
 } ProgramCounter;
 
-// Estrutura da instrução decodificada (simplificada)
+// Estrutura da instrução decodificada 
 typedef struct inst{
     int opcode;      // 4 bits
     int rs, rt, rd;  // Registradores
@@ -27,7 +27,7 @@ typedef struct inst{
     char binary[INSTR_SIZE+1]; // Instrução em binário
 } Instruction;
 
-// Função de decodificação (adaptada para int)
+// Função de decodificação 
 void decodificar(const char *inst_str, Instruction *inst) {
     strncpy(inst->binary, inst_str, INSTR_SIZE);
     inst->binary[INSTR_SIZE] = '\0';
