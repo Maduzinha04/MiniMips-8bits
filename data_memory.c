@@ -1,83 +1,102 @@
 #include <stdio.h>
+#include <stdint.h>  // Para tipos de dados precisos (uint8_t, uint16_t)
+#include <string.h>  // Para funções de manipulação de strings (memset, strncpy)
 
-// Definição do tamanho da memória de dados
-#define DATA_MEM_ROWS 256  // Número de linhas da memória
-#define DATA_MEM_COLS 4    // Número de colunas (palavras de 4 bytes)
+// Tamanho da memória de dados em bytes
+#define DATA_SIZE 256
+// Tamanho de meia palavra (16 bits) em bytes
+#define HALF_WORD_SIZE 2
+#define MEM_SIZE 256
 
 // Estrutura para representar a memória de dados
-typedef struct data_memory{
-    int data_mem[DATA_MEM_ROWS][DATA_MEM_COLS]; // Matriz que representa a memória de dados
+typedef struct {
+    uint8_t data_mem[DATA_SIZE];  // Memória de dados (cada célula = 1 byte)
 }DataMemory;
 
 // Estrutura para representar o Program Counter (PC)
 typedef struct pc{
-    int pc;      // Endereço da instrução atual
-    int prev_pc; // Endereço da instrução anterior
-}ProgramCounter;
+    uint16_t pc;       // Contador de programa (endereço atual)
+    uint16_t prev_pc;  // Endereço anterior 
+} ProgramCounter;
 
-// Função para inicializar a memória de dados com zeros
-void initialize_data_memory(DataMemory *dmem){
-    for (int i = 0; i < DATA_MEM_ROWS; i++){
-        for (int j = 0; j < DATA_MEM_COLS; j++){
-            dmem->data_mem[i][j] = 0; // Define todos os valores como 0
-        }
-    }
+// Inicializa toda a memória de dados com zeros
+void init_data_memory(DataMemory *dmem) {
+    memset(dmem->data_mem, 0, DATA_SIZE);
 }
 
 // Função para armazenar um valor na memória de dados
-void store_data(DataMemory *dmem, int row, int col, int value){
-    // Verifica se os índices estão dentro dos limites da memória
-    if (row >= 0 && row < DATA_MEM_ROWS && col >= 0 && col < DATA_MEM_COLS){
-        dmem->data_mem[row][col] = value; // Armazena o valor na posição especificada
-    } else {
-        printf("Erro: Endereço de memória inválido (%d, %d)\n", row, col);
+void store_halfword(DataMemory *dmem, uint8_t address, uint16_t value) {
+    if (address % HALF_WORD_SIZE != 0) {  // Verifica alinhamento
+        printf("Erro: Endereço %d não alinhado para 16 bits!\n", address);
+        return;
     }
+    // Divide o valor em 2 bytes e armazena
+    dmem->data_mem[address] = (value >> 8) & 0xFF;   // Byte mais significativo
+    dmem->data_mem[address + 1] = value & 0xFF;      // Byte menos significativo
 }
 
-// Função para carregar um valor da memória de dados
-int load_data(DataMemory *dmem, int row, int col){
-    // Verifica se os índices estão dentro dos limites da memória
-    if (row >= 0 && row < DATA_MEM_ROWS && col >= 0 && col < DATA_MEM_COLS) {
-        return dmem->data_mem[row][col]; // Retorna o valor armazenado
-    } else {
-        printf("Erro: Endereço de memória inválido (%d, %d)\n", row, col);
-        return -1; // Retorna um valor de erro caso o acesso seja inválido
+// Lê uma meia-palavra (16 bits) de endereço par
+uint16_t load_halfword(DataMemory *dmem, uint8_t address) {
+    if (address % HALF_WORD_SIZE != 0) {  // Verifica alinhamento
+        printf("Erro: Endereço %d não alinhado para 16 bits!\n", address);
+        return 0;
     }
+    // Combina 2 bytes para formar um valor de 16 bits
+    return (dmem->data_mem[address] << 8) | dmem->data_mem[address + 1];
 }
 
-// Função para atualizar o Program Counter (PC)
-void update_pc(ProgramCounter *pc, int new_address){
-    pc->prev_pc = pc->pc; // Guarda o endereço anterior
-    pc->pc = new_address; // Atualiza o PC com o novo endereço
+// Inicializa o PC com zero
+void pc_init(ProgramCounter *pc) {
+    pc->pc = 0;
+    pc->prev_pc = 0;
+}
+
+// Atualiza o PC para um novo endereço
+void pc_update(ProgramCounter *pc, uint16_t new_pc) {
+    pc->prev_pc = pc->pc;  // Guarda o endereço atual
+    pc->pc = new_pc;       // Atualiza para o novo endereço
+}
+
+// Executa um desvio (branch) somando um offset ao PC atual
+void pc_branch(ProgramCounter *pc, uint16_t offset) {
+    pc_update(pc, pc->pc + offset);
 }
 
 // Função principal para testar as funcionalidades
 int main(){
     DataMemory dmem; // Declara a memória de dados
-    ProgramCounter pc = {0, -1}; // Inicializa o PC (inicia em 0, prev_pc em -1 indicando inexistência)
+    ProgramCounter pc; // Declara o contador de programa
+    pc_init(&pc); // Inicializa o PC
 
-    initialize_data_memory(&dmem); // Inicializa a memória de dados
+    init_data_memory(&dmem); // Inicializa a memória de dados
 
-    // Teste 1: Armazenando valores na memória
-    printf("Armazenando valores...\n");
-    store_data(&dmem, 10, 2, 42);
-    store_data(&dmem, 15, 1, 99);
-    
-    // Teste 2: Lendo valores armazenados na memória
-    printf("Valor na posição (10,2): %d\n", load_data(&dmem, 10, 2)); 
-    printf("Valor na posição (15,1): %d\n", load_data(&dmem, 15, 1)); 
-    
-    // Teste 3: Tentativa de acesso inválido
-    printf("Tentando acessar posição inválida:\n");
-    load_data(&dmem, 300, 2); // Deve exibir erro
 
-    // Teste 4: Atualizando o Program Counter (PC)
-    printf("\nAtualizando o PC...\n");
-    update_pc(&pc, 100);
-    printf("PC atual: %d, PC anterior: %d\n", pc.pc, pc.prev_pc);
+    while (1) {
+        // 1. Busca da instrução
+        const char *current_instr = imem.instr_mem[pc.pc];
+        printf("Executando PC=%d: %s\n", pc.pc, current_instr);
 
-    update_pc(&pc, 200);
-    printf("PC atual: %d, PC anterior: %d\n", pc.pc, pc.prev_pc);
+        // 2. Determina próximo PC (incremento padrão)
+        uint16_t next_pc = pc.pc + 1;
+        
+        // Exemplo simplificado de branch (substitua pela sua lógica real)
+        if (current_instr[0] == '1' && current_instr[1] == '1') {
+            uint16_t offset = 5;  // Valor do branch (exemplo)
+            pc_branch(&pc, offset);
+        } else {
+            pc_update(&pc, next_pc);  // Avança para próxima instrução
+        }
+
+        // Exemplo de acesso à memória de dados
+        if (pc.pc == 10) {
+            store_halfword(&dmem, 0x00, 0xABCD);  // Armazena valor
+            uint16_t val = load_halfword(&dmem, 0x00);  // Lê valor
+            printf("Dado lido: 0x%04X\n", val);
+        }
+
+        // Condição de parada (fim da memória)
+        if (pc.pc >= MEM_SIZE) break;
+    }
 
     return 0;
 }
