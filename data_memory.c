@@ -1,102 +1,138 @@
 #include <stdio.h>
-#include <stdint.h>  // Para tipos de dados precisos (uint8_t, uint16_t)
-#include <string.h>  // Para funções de manipulação de strings (memset, strncpy)
+#include <string.h>
 
-// Tamanho da memória de dados em bytes
 #define DATA_SIZE 256
-// Tamanho de meia palavra (16 bits) em bytes
+#define INSTR_SIZE 16
 #define HALF_WORD_SIZE 2
 #define MEM_SIZE 256
 
-// Estrutura para representar a memória de dados
-typedef struct {
-    uint8_t data_mem[DATA_SIZE];  // Memória de dados (cada célula = 1 byte)
-}DataMemory;
+// Estrutura da memória de dados
+typedef struct datamem{
+    int data_mem[DATA_SIZE];  // Cada posição = 1 byte (usando int para simplicidade)
+} DataMemory;
 
-// Estrutura para representar o Program Counter (PC)
+// Estrutura do Program Counter
 typedef struct pc{
-    uint16_t pc;       // Contador de programa (endereço atual)
-    uint16_t prev_pc;  // Endereço anterior 
+    int pc;          // Endereço atual
+    int prev_pc;     // Endereço anterior (para branches)
 } ProgramCounter;
 
-// Inicializa toda a memória de dados com zeros
-void init_data_memory(DataMemory *dmem) {
-    memset(dmem->data_mem, 0, DATA_SIZE);
-}
+// Estrutura da instrução decodificada (simplificada)
+typedef struct inst{
+    int opcode;      // 4 bits
+    int rs, rt, rd;  // Registradores
+    int imm;         // Imediato (12 bits)
+    int addr;        // Endereço (para jumps)
+    char type;       // 'R', 'I', 'J'
+    char binary[INSTR_SIZE+1]; // Instrução em binário
+} Instruction;
 
-// Função para armazenar um valor na memória de dados
-void store_halfword(DataMemory *dmem, uint8_t address, uint16_t value) {
-    if (address % HALF_WORD_SIZE != 0) {  // Verifica alinhamento
-        printf("Erro: Endereço %d não alinhado para 16 bits!\n", address);
-        return;
+// Função de decodificação (adaptada para int)
+void decodificar(const char *inst_str, Instruction *inst) {
+    strncpy(inst->binary, inst_str, INSTR_SIZE);
+    inst->binary[INSTR_SIZE] = '\0';
+
+    // Extrai opcode (primeiros 4 bits)
+    char opcode_str[5];
+    strncpy(opcode_str, inst_str, 4);
+    opcode_str[4] = '\0';
+    inst->opcode = strtol(opcode_str, NULL, 2);
+
+    if (inst->opcode == 0) { // Tipo R
+        inst->type = 'R';
+        char rs_str[4], rt_str[4], rd_str[4], funct_str[4];
+        strncpy(rs_str, inst_str + 4, 3); rs_str[3] = '\0';
+        strncpy(rt_str, inst_str + 7, 3); rt_str[3] = '\0';
+        strncpy(rd_str, inst_str + 10, 3); rd_str[3] = '\0';
+        strncpy(funct_str, inst_str + 13, 3); funct_str[3] = '\0';
+        inst->rs = strtol(rs_str, NULL, 2);
+        inst->rt = strtol(rt_str, NULL, 2);
+        inst->rd = strtol(rd_str, NULL, 2);
+    } 
+    else if (inst->opcode == 2 || inst->opcode == 3) { // Tipo J
+        inst->type = 'J';
+        char addr_str[13];
+        strncpy(addr_str, inst_str + 4, 12); addr_str[12] = '\0';
+        inst->addr = strtol(addr_str, NULL, 2);
+    } 
+    else { // Tipo I
+        inst->type = 'I';
+        char rs_str[4], rt_str[4], imm_str[7];
+        strncpy(rs_str, inst_str + 4, 3); rs_str[3] = '\0';
+        strncpy(rt_str, inst_str + 7, 3); rt_str[3] = '\0';
+        strncpy(imm_str, inst_str + 10, 6); imm_str[6] = '\0';
+        inst->rs = strtol(rs_str, NULL, 2);
+        inst->rt = strtol(rt_str, NULL, 2);
+        inst->imm = strtol(imm_str, NULL, 2);
     }
-    // Divide o valor em 2 bytes e armazena
-    dmem->data_mem[address] = (value >> 8) & 0xFF;   // Byte mais significativo
-    dmem->data_mem[address + 1] = value & 0xFF;      // Byte menos significativo
 }
 
-// Lê uma meia-palavra (16 bits) de endereço par
-uint16_t load_halfword(DataMemory *dmem, uint8_t address) {
-    if (address % HALF_WORD_SIZE != 0) {  // Verifica alinhamento
-        printf("Erro: Endereço %d não alinhado para 16 bits!\n", address);
-        return 0;
-    }
-    // Combina 2 bytes para formar um valor de 16 bits
-    return (dmem->data_mem[address] << 8) | dmem->data_mem[address + 1];
+// Funções de memória 
+void store_halfword(DataMemory *dmem, int addr, int value) {
+    dmem->data_mem[addr] = value >> 8;    // Byte alto
+    dmem->data_mem[addr + 1] = value;     // Byte baixo
 }
 
-// Inicializa o PC com zero
-void pc_init(ProgramCounter *pc) {
-    pc->pc = 0;
-    pc->prev_pc = 0;
+int load_halfword(DataMemory *dmem, int addr) {
+    return (dmem->data_mem[addr] << 8) | dmem->data_mem[addr + 1];
 }
 
-// Atualiza o PC para um novo endereço
-void pc_update(ProgramCounter *pc, uint16_t new_pc) {
-    pc->prev_pc = pc->pc;  // Guarda o endereço atual
-    pc->pc = new_pc;       // Atualiza para o novo endereço
+void init_memory(DataMemory *dmem) {
+    memset(dmem->data_mem, 0, sizeof(dmem->data_mem));
 }
 
-// Executa um desvio (branch) somando um offset ao PC atual
-void pc_branch(ProgramCounter *pc, uint16_t offset) {
-    pc_update(pc, pc->pc + offset);
-}
+// Simulação do ciclo fetch-decode-execute
+void run_simulation(const char *program[], int program_size) {
+    DataMemory dmem;
+    ProgramCounter pc = {0, -1};
+    Instruction inst;
+    init_memory(&dmem);
 
-// Função principal para testar as funcionalidades
-int main(){
-    DataMemory dmem; // Declara a memória de dados
-    ProgramCounter pc; // Declara o contador de programa
-    pc_init(&pc); // Inicializa o PC
-
-    init_data_memory(&dmem); // Inicializa a memória de dados
-
-
-    while (1) {
-        // 1. Busca da instrução
-        const char *current_instr = imem.instr_mem[pc.pc];
-        printf("Executando PC=%d: %s\n", pc.pc, current_instr);
-
-        // 2. Determina próximo PC (incremento padrão)
-        uint16_t next_pc = pc.pc + 1;
+    while (pc.pc < program_size) {
+        // 1. FETCH: Busca instrução
+        const char *current_instr = program[pc.pc];
         
-        // Exemplo simplificado de branch (substitua pela sua lógica real)
-        if (current_instr[0] == '1' && current_instr[1] == '1') {
-            uint16_t offset = 5;  // Valor do branch (exemplo)
-            pc_branch(&pc, offset);
-        } else {
-            pc_update(&pc, next_pc);  // Avança para próxima instrução
+        // 2. DECODE: Decodifica
+        decodificar(current_instr, &inst);
+        
+        // 3. EXECUTE (exemplo simplificado)
+        printf("PC=%02d | Instrução: %s | Tipo: %c\n", pc.pc, inst.binary, inst.type);
+        
+        // Operações de memória (exemplo para load/store)
+        if (inst.type == 'I' && inst.opcode == 4) { // Load
+            inst.rt = load_halfword(&dmem, inst.imm);
+            printf("  LOAD: mem[%d] -> R%d (Valor: 0x%04X)\n", inst.imm, inst.rt, inst.rt);
+        } 
+        else if (inst.type == 'I' && inst.opcode == 5) { // Store
+            store_halfword(&dmem, inst.imm, inst.rt);
+            printf("  STORE: R%d -> mem[%d]\n", inst.rt, inst.imm);
         }
-
-        // Exemplo de acesso à memória de dados
-        if (pc.pc == 10) {
-            store_halfword(&dmem, 0x00, 0xABCD);  // Armazena valor
-            uint16_t val = load_halfword(&dmem, 0x00);  // Lê valor
-            printf("Dado lido: 0x%04X\n", val);
-        }
-
-        // Condição de parada (fim da memória)
-        if (pc.pc >= MEM_SIZE) break;
+        
+        // Atualiza PC (sequencial ou branch)
+        pc.prev_pc = pc.pc;
+        pc.pc++;
     }
+}
 
+// Programa de teste (instruções em binário)
+const char *test_program[] = {
+    "0100001100101010",  // LOAD  R2 <- mem[42] (op=4, rt=2, imm=42)
+    "0101001100101010",  // STORE R2 -> mem[42] (op=5, rt=2, imm=42)
+    "0000000000000000",  // NOP (op=0)
+    "0000000000000000"   // NOP (op=0)
+};
+
+int main() {
+    // Inicializa memória de dados
+    DataMemory dmem;
+    init_memory(&dmem);
+    
+    // Pré-carrega um valor na memória
+    store_halfword(&dmem, 42, 0xABCD);
+    printf("Valor inicial em mem[42]: 0x%04X\n", load_halfword(&dmem, 42));
+    
+    // Executa o programa
+    run_simulation(test_program, 4);
+    
     return 0;
 }
