@@ -122,25 +122,25 @@ void executar_instrucao(struct simulador *sim, struct instrucao *inst) {
 // Ciclo principal de execução
 void run_simulation(struct simulador *sim) {
     while (sim->pc.pc < sim->prog_size) {
-        struct instrucao *current = &sim->programa[sim->pc.pc];
+        struct instrucao *inst = &sim->programa[sim->pc.pc];
         
-        // Atualiza PC anterior
+        // Atualiza prev_pc
         sim->pc.prev_pc = sim->pc.pc;
         
         // Decodifica
-        decodificador(current);
+        decodificador(inst);
         
         // Executa
-        executar_instrucao(sim, current);
+        executar_instrucao(sim, inst);
         
         // Incrementa PC (a menos que seja jump)
-        if (current->tipo_inst != tipo_J) {
+        if (inst->tipo_inst != tipo_J) {
             sim->pc.pc++;
         }
     }
 }
 
-int main() {
+int main(){
     // Programa de teste (agora usando struct instrucao)
     struct instrucao programa_teste[] = {
         {tipo_I, "0100000100101010"},  // LW R2, 42(R1)
