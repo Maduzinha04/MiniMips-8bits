@@ -49,48 +49,49 @@ int ula(int operacao, int a, int b) {
     }
 }
 
-void criaasm(struct instrucao *inst, *arqasm){
+void criaasm(struct instrucao *inst, FILE *arqasm) {
+    if ((arqasm = fopen("saida.asm", "a")) == NULL) {
+        printf("arquivo inválido.\n");
+        return;
+    }
 
-    if((arqasm=fopen("saida.asm", "a") == NULL)){
-        printt("arquivo inválido.");
-    }else{
-        if(inst->tipo == tipo_R){
-            if(inst->funct == 0){
-                fprintf(arqasm, "add $%d, $%d, $%d\n", inst->rd, inst->rs, inst->rt);
-            }
-            if(inst->funct == 2){
-                fprintf(arqasm, "sub $%d, $%d, $%d\n", inst->rd, inst->rs, inst->rt);
-            }
-            if(inst->funct == 4){
-                fprintf(arqasm, "and $%d, $%d, $%d\n", inst->rd, inst->rs, inst->rt);
-            }
-            if(inst->funct == 5){
-                fprintf(arqasm, "or $%d, $%d, $%d\n", inst->rd, inst->rs, inst->rt);
-            }
+    if (inst->tipo == tipo_R) {
+        if (inst->funct == 0) {
+            fprintf(arqasm, "add $%d, $%d, $%d\n", inst->rd, inst->rs, inst->rt);
         }
-        
-        if(inst->tipo == tipo_I){
-            if(inst->opcode == 4){
-                fprintf(arqasm, "addi $%d, $%d, %d\n", inst->rt, inst->rs, inst->imm);
-            }
-            if(inst->opcode == 11){
-                fprintf(arqasm, "lw $%d, %d($%d)\n", inst->rt, inst->imm, inst->rs);
-            }
-            if(inst->opcode == 15){
-                fprintf(arqasm, "sw $%d, %d($%d)\n", inst->rt, inst->imm. inst->rs);
-            }
-            if(inst->opcode == 8){
-                fprintf(arqasm, "beq $%d, $%d, %d\n", inst->rt, inst->rs, inst->imm);
-            }
+        if (inst->funct == 2) {
+            fprintf(arqasm, "sub $%d, $%d, $%d\n", inst->rd, inst->rs, inst->rt);
         }
-        
-        if(inst->tipo == tipo_J){
-            if(inst->opcode == 2){
-            fprintf(arqasm, "j %d\n", inst->addr);
-            }
+        if (inst->funct == 4) {
+            fprintf(arqasm, "and $%d, $%d, $%d\n", inst->rd, inst->rs, inst->rt);
+        }
+        if (inst->funct == 5) {
+            fprintf(arqasm, "or $%d, $%d, $%d\n", inst->rd, inst->rs, inst->rt);
         }
     }
-    
+
+    if (inst->tipo == tipo_I) {
+        if (inst->opcode == 4) {
+            fprintf(arqasm, "addi $%d, $%d, %d\n", inst->rt, inst->rs, inst->imm);
+        }
+        if (inst->opcode == 11) {
+            fprintf(arqasm, "lw $%d, %d($%d)\n", inst->rt, inst->imm, inst->rs);
+        }
+        if (inst->opcode == 15) {
+            fprintf(arqasm, "sw $%d, %d($%d)\n", inst->rt, inst->imm, inst->rs);
+        }
+        if (inst->opcode == 8) {
+            fprintf(arqasm, "beq $%d, $%d, %d\n", inst->rt, inst->rs, inst->imm);
+        }
+    }
+
+    if (inst->tipo == tipo_J) {
+        if (inst->opcode == 2) {
+            fprintf(arqasm, "j %d\n", inst->addr);
+        }
+    }
+
+    fclose(arqasm);
 }
 
 // Decodifica uma instrução de 16 bits
