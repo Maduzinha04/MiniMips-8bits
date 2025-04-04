@@ -6,6 +6,8 @@
 #define INSTR_BITS 16
 #define Registradores 8
 
+FILE *arqasm;
+
 // Tipos de instruções (R, I, J)
 enum classe_inst {
     tipo_R, tipo_I, tipo_J, tipo_INVALIDO
@@ -47,6 +49,50 @@ int ula(int operacao, int a, int b) {
     }
 }
 
+void criaasm(struct instrucao *inst, *arqasm){
+
+    if((arqasm=fopen("saida.asm", "a") == NULL)){
+        printt("arquivo inválido.");
+    }else{
+        if(inst->tipo == tipo_R){
+            if(inst->funct == 0){
+                fprintf(arqasm, "add $%d, $%d, $%d\n", inst->rd, inst->rs, inst->rt);
+            }
+            if(inst->funct == 2){
+                fprintf(arqasm, "sub $%d, $%d, $%d\n", inst->rd, inst->rs, inst->rt);
+            }
+            if(inst->funct == 4){
+                fprintf(arqasm, "and $%d, $%d, $%d\n", inst->rd, inst->rs, inst->rt);
+            }
+            if(inst->funct == 5){
+                fprintf(arqasm, "or $%d, $%d, $%d\n", inst->rd, inst->rs, inst->rt);
+            }
+        }
+        
+        if(inst->tipo == tipo_I){
+            if(inst->opcode == 4){
+                fprintf(arqasm, "addi $%d, $%d, %d\n", inst->rt, inst->rs, inst->imm);
+            }
+            if(inst->opcode == 11){
+                fprintf(arqasm, "lw $%d, %d($%d)\n", inst->rt, inst->imm, inst->rs);
+            }
+            if(inst->opcode == 15){
+                fprintf(arqasm, "sw $%d, %d($%d)\n", inst->rt, inst->imm. inst->rs);
+            }
+            if(inst->opcode == 8){
+                fprintf(arqasm, "beq $%d, $%d, %d\n", inst->rt, inst->rs, inst->imm);
+            }
+        }
+        
+        if(inst->tipo == tipo_J){
+            if(inst->opcode == 2){
+            fprintf(arqasm, "j %d\n", inst->addr);
+            }
+        }
+    }
+    
+}
+
 // Decodifica uma instrução de 16 bits
 void decodificar(const char *inst_str, struct instrucao *inst) {
     strncpy(inst->binario, inst_str, INSTR_BITS);
@@ -85,6 +131,8 @@ void decodificar(const char *inst_str, struct instrucao *inst) {
         inst->rt = strtol(rt_str, NULL, 2);
         inst->imm = strtol(imm_str, NULL, 2);
     }
+
+    criaasm(&inst, &arqasm);
 }
 
 // Carrega instruções do arquivo para a memória
@@ -163,7 +211,15 @@ void mostrar_menu() {
     printf("Opção: ");
 }
 
-int main() {
+int main(){
+
+    if((arqasm=fopen("saida.asm", "w")) == NULL){
+        printf("arquivo inválido.");
+        return 1;
+    } else {
+        fclose(arqasm); 
+    }
+
     int op = 0;
     
     do {
