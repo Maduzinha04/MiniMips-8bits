@@ -161,7 +161,7 @@ void decodificar(struct simulador *sim, struct instrucao *inst, int pc_pos){
         }
     }
 
-    sim->ultimo_estado.inst = inst;
+    sim->ultimosalvo.inst = inst;
 }
 
 // Carrega um programa na memória de instruções
@@ -197,8 +197,8 @@ void load_program(struct simulador *sim, const char *filename){
 void executar_instrucao(struct simulador *sim){
 
     sim->ultimosalvo.pc = sim->pc.current;
-    memcpy(sim->ultimo_estado.reg, sim->reg, sizeof(sim->reg));
-    memcpy(sim->ultimo_estado.dados, sim->dmem.dados, sizeof(sim->dmem.dados));
+    memcpy(sim->ultimosalvo.reg, sim->reg, sizeof(sim->reg));
+    memcpy(sim->ultimosalvo.dados, sim->dmem.dados, sizeof(sim->dmem.dados));
 
     if (sim->pc.current >= sim->prog_size) {
         printf("Fim do programa\n");
@@ -339,9 +339,9 @@ void salvar_memoria_dados_arquivo(struct simulador *sim){
 void back(struct simulador *sim){
     printf("\n--- Reexecução da última instrução ---\n");
 
-    memcpy(sim->reg, sim->ultimo_estado.reg, sizeof(sim->reg));
-    memcpy(sim->dmem.dados, sim->ultimo_estado.dados, sizeof(sim->dmem.dados));
-    sim->pc.current = sim->ultimo_estado.pc;
+    memcpy(sim->reg, sim->ultimosalvo.reg, sizeof(sim->reg));
+    memcpy(sim->dmem.dados, sim->ultimosalvo.dados, sizeof(sim->dmem.dados));
+    sim->pc.current = sim->ultimosalvo.pc;
 
     printf("Estado restaurado para PC = %d\n", sim->pc.current);
 
